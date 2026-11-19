@@ -1,0 +1,59 @@
+# ============================================================
+# Render.com deployment configuration for SafeWeb Backend
+# Docs: https://render.com/docs/yaml-spec
+# ============================================================
+
+services:
+  # ── FastAPI Web Service ────────────────────────────────────
+  - type: web
+    name: safeweb-backend
+    runtime: python
+    region: singapore          # change to your preferred region
+    plan: free                 # upgrade to starter ($7/mo) for always-on
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: ALLOWED_ORIGINS
+        value: https://your-safeweb-app.vercel.app   # update after Vercel deploy
+      - key: SUPABASE_URL
+        sync: false            # set in Render dashboard (secret)
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: GOOGLE_SAFE_BROWSING_API_KEY
+        sync: false
+      - key: VIRUSTOTAL_API_KEY
+        sync: false
+
+  # ── Background Scheduler Worker ───────────────────────────
+  - type: worker
+    name: safeweb-scheduler
+    runtime: python
+    region: singapore
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app.workers.monitor_scheduler
+
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: GOOGLE_SAFE_BROWSING_API_KEY
+        sync: false
+      - key: VIRUSTOTAL_API_KEY
+        sync: false
