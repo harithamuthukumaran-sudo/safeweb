@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Body, status
+import os
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, Header, status
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 
@@ -107,3 +108,22 @@ async def remove_from_monitoring(
             detail="Monitoring entry not found or does not belong to this account.",
         )
     return {"message": "Monitoring entry removed successfully."}
+
+
+@router.post(
+    "/run-checks",
+    summary="Trigger monitoring checks (called by external cron)",
+    description="Runs due monitoring checks for all users. Protected by a cron secret header.",
+)
+async def run_monitoring_checks(x_cron_secret: str = Header(None)):
+    """Called by cron-job.org every hour. Runs all due site checks."""
+    expected = os.getenv("CRON_SECRET", "")
+    if not expected or x_cron_secret != expected:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    try:
+        from app.workers.monitor_scheduler import run_due_checks
+        checked = await run_due_checks()
+        return {"status": "ok", "sites_checked": checked}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

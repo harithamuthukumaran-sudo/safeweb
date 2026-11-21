@@ -200,3 +200,20 @@ async def run_scheduler() -> None:
 
 if __name__ == "__main__":
     asyncio.run(run_scheduler())
+
+
+async def run_due_checks() -> int:
+    """
+    Single-pass check: fetch all due sites, scan them, write alerts.
+    Called by the /api/v1/monitor/run-checks endpoint (triggered by cron-job.org).
+    Returns the number of sites checked.
+    """
+    sites = await get_sites_due_for_check()
+    if not sites:
+        return 0
+    semaphore = asyncio.Semaphore(5)
+    async def bounded(site):
+        async with semaphore:
+            await _check_site(site)
+    await asyncio.gather(*[bounded(s) for s in sites])
+    return len(sites)
